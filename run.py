@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import dis
 import sys
-from dataclasses import dataclass
+from argparse import ArgumentParser
+from collections import defaultdict, deque
+from dataclasses import dataclass, field
 from typing import Any, List
 
 import opcode
@@ -13,10 +15,12 @@ class VirtualInstruction:
     name: str
     arguments: List[str]
 
+    instr: dis.Instruction = field(repr=False, compare=False)
+
     idx: int = -1
 
     def as_string(self):
-        source = "$" + str(self.idx)
+        source = self.ref_name
         source += " = "
         source += self.name
         source += "("
@@ -25,6 +29,10 @@ class VirtualInstruction:
         )
         source += ")"
         return source
+
+    @property
+    def ref_name(self):
+        return "$" + str(self.idx)
 
 
 @dataclass
@@ -40,7 +48,7 @@ class Reference:
     referee: VirtualInstruction
 
     def as_string(self):
-        return f"${self.referee.idx}"
+        return self.referee.ref_name
 
 
 @dataclass
@@ -59,18 +67,42 @@ class InstructionProperties:
         return opcode.stack_effect(self.instr.opcode, self.instr.arg)
 
 
+def assign_ids(virtual_instructions, *, counter=0):
+    for virtual_instr in virtual_instructions:
+        virtual_instr.idx = counter
+        counter += 1
+
+    return virtual_instructions
+
+
+KNOWN_NEGATIVE_EFFECTS = {
+    "COMPARE_OP": 2,
+    "POP_TOP": 1,
+    "RETURN_VALUE": 1,
+    "POP_JUMP_IF_FALSE": 1,
+    "POP_JUMP_IF_TRUE": 1,
+    "JUMP_FORWARD": 0,
+}
+
+
 def get_instr_properties(instr):
     properties = InstructionProperties(instr)
 
     if instr.opname.startswith("LOAD_"):
         if instr.opname in ("LOAD_ATTR", "LOAD_METHOD"):
             properties.negative_effect = 1
+    elif instr.opname.startswith("STORE_"):
+        if instr.opname == "STORE_ATTR":
+            properties.negative_effect = 2
+        properties.negative_effect = 1
     elif instr.opname.startswith("BINARY_"):
         properties.negative_effect = 2
-    elif instr.opname in ("POP_TOP", "RETURN_VALUE"):
-        properties.negative_effect = 1
+    elif instr.opname == "CALL_FUNCTION":
+        properties.negative_effect = instr.argval + 1
+    elif instr.opname in KNOWN_NEGATIVE_EFFECTS:
+        properties.negative_effect = KNOWN_NEGATIVE_EFFECTS[instr.opname]
     else:
-        raise NotImplementedError(instr.opcode)
+        raise NotImplementedError(instr.opname)
 
     return properties
 
@@ -97,28 +129,74 @@ def simulate_stack(source):
         if instr.opcode > opcode.HAVE_ARGUMENT:
             arguments.append(VirtualConstant(instr.argval))
 
-        virtual_instr = VirtualInstruction(instr.opname, arguments=arguments)
+        virtual_instr = VirtualInstruction(
+            instr.opname, arguments=arguments, instr=instr
+        )
         virtual_instructions.append(virtual_instr)
         if properties.positive_effect:
             stack.append(virtual_instr)
 
     assert len(stack) == 0, stack
 
-    return virtual_instructions
+    return assign_ids(virtual_instructions)
 
 
-def assign_ids(virtual_instructions, *, counter=0):
+def reduce_graph(board, virtual_instructions, outgoing_edges):
+    # Patch unconnected edges, not a CFG!
+    for instr, next_instr in zip(
+        virtual_instructions, virtual_instructions[1:]
+    ):
+        if instr.ref_name in outgoing_edges:
+            continue
+
+        board.edge(
+            instr.ref_name, next_instr.ref_name, arrowhead="none", color="gray"
+        )
+    return board
+
+
+def show_graph(virtual_instructions):
+    import graphviz
+
+    board = graphviz.Digraph()
+
+    outgoing_edges = set()
+    for instr in virtual_instructions:
+        board.node(instr.ref_name, instr.as_string())
+
+        for argument in instr.arguments:
+            if not isinstance(argument, Reference):
+                continue
+
+            board.node(argument.as_string(), argument.referee.as_string())
+            board.edge(argument.as_string(), instr.ref_name, color="red")
+            outgoing_edges.add(argument.as_string())
+
+    reduce_graph(board, virtual_instructions, outgoing_edges)
+
+    board.render("/tmp/out.gv", view=True)
+
+
+def show_text(virtual_instructions):
     for virtual_instr in virtual_instructions:
-        virtual_instr.idx = counter
-        counter += 1
+        print(virtual_instr.as_string())
 
 
 def main():
-    virtual_instructions = simulate_stack(sys.argv[1])
-    assign_ids(virtual_instructions)
+    parser = ArgumentParser()
+    parser.add_argument("file", help="source file")
+    parser.add_argument("--show-graph", action="store_true")
 
-    for virtual_instr in virtual_instructions:
-        print(virtual_instr.as_string())
+    options = parser.parse_args()
+
+    with open(options.file) as stream:
+        source = stream.read()
+
+    virtual_instructions = simulate_stack(source)
+    if options.show_graph:
+        show_graph(virtual_instructions)
+    else:
+        show_text(virtual_instructions)
 
 
 if __name__ == "__main__":
