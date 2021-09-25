@@ -17,12 +17,17 @@ def has_jump(instr):
 @dataclass
 class Block:
     instructions: List[dis.Instruction] = field(default_factory=list)
+    next_block: Block = None
 
     def __bool__(self):
         return bool(self.instructions)
 
     def add_instruction(self, instr):
         self.instructions.append(instr)
+
+    @property
+    def start_offset(self):
+        return self.instructions[0].offset
 
 
 def _transform(instructions, *, counter=0, start_range=-1, end_range=-1):
@@ -62,14 +67,47 @@ def _transform(instructions, *, counter=0, start_range=-1, end_range=-1):
     else:
         final_counter = None
 
-    return final_counter, filter(lambda block: block, blocks)
+    return final_counter, blocks
+
+
+def _assign_ids(original_blocks):
+    blocks = []
+    for block_id, block in enumerate(
+        filter(lambda block: block, original_blocks)
+    ):
+        block.block_id = block_id
+        blocks.append(block)
+
+    return blocks
+
+
+def _link(blocks):
+    offset_map = {block.start_offset: block for block in blocks}
+
+    for block in blocks:
+        last_instr = block.instructions[-1]
+        if has_jump(last_instr):
+            next_block = offset_map.get(last_instr.argval)
+        else:
+            next_block = offset_map.get(last_instr.offset + 2)
+
+        block.next_block = next_block
+
+    return blocks
 
 
 def transform(instructions):
     _, blocks = _transform(instructions, end_range=len(instructions))
+    blocks = _assign_ids(blocks)
+    blocks = _link(blocks)
 
-    for index, block in enumerate(blocks):
-        print(f"{index}. block: ")
+    for block in blocks:
+        source = f"{block.block_id}. block"
+        if block.next_block:
+            source += f" (proceeds to {block.next_block.block_id})"
+        else:
+            source += " (exit block)"
+        print(source + ": ")
         for instr in block.instructions:
             print(f"   {instr.offset} {instr.opname}({instr.argval})")
 
