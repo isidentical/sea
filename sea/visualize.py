@@ -1,30 +1,28 @@
-def reduce_graph(board, calls, outgoing_edges):
-    # Patch unconnected edges in the instruction graph (this is not
-    # a control flow graph, so we do not consider semantical jumps).
-
-    for call, next_call in zip(calls, calls[1:]):
-        if call.name in outgoing_edges:
-            continue
-
-        board.edge(call.name, next_call.name, arrowhead="none", color="gray")
-    return board
+from sea.graph import Graph
 
 
 def visualize_as_graph(calls):
     import graphviz
 
+    graph = Graph.from_calls(calls)
     board = graphviz.Digraph()
 
-    outgoing_edges = set()
-    for call in calls:
-        board.node(call.name, call.as_string())
+    for node in graph.nodes:
+        board.node(node.virtual.name, node.virtual.as_string())
 
-        for argument in call.arguments:
-            board.node(argument.name, argument.as_string())
-            board.edge(argument.name, call.name, color="red")
-            outgoing_edges.add(argument.as_string())
+    for edge in graph.edges:
+        properties = {}
+        if edge.metadata["type"] == "argument":
+            properties["color"] = "red"
+        elif edge.metadata["type"] == "patched":
+            properties["arrowhead"] = "none"
+            properties["color"] = "gray"
 
-    reduce_graph(board, calls, outgoing_edges)
+        board.edge(
+            edge.source.virtual.name,
+            edge.destination.virtual.name,
+            **properties,
+        )
 
     board.render("/tmp/out.gv", view=True)
 
