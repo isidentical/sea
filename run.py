@@ -10,8 +10,13 @@ from typing import Any, List
 import opcode
 
 
+class Virtual:
+    def as_render(self):
+        raise NotImplementedError
+
+
 @dataclass
-class VirtualInstruction:
+class VirtualInstruction(Virtual):
     name: str
     arguments: List[str]
 
@@ -36,7 +41,7 @@ class VirtualInstruction:
 
 
 @dataclass
-class VirtualConstant:
+class VirtualConstant(Virtual):
     value: Any
 
     def as_string(self):
