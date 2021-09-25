@@ -1,4 +1,5 @@
-# Experimental SEA IR (not used anywhere)
+# An experimental IR based on basic blocks (not used anywhere
+# at the moment).
 
 from __future__ import annotations
 
@@ -17,7 +18,10 @@ def has_jump(instr):
 @dataclass
 class Block:
     instructions: List[dis.Instruction] = field(default_factory=list)
+
+    # Assigned by the linker
     next_block: Block = None
+    block_id: int = -1
 
     def __bool__(self):
         return bool(self.instructions)
@@ -25,29 +29,41 @@ class Block:
     def add_instruction(self, instr):
         self.instructions.append(instr)
 
+    def dump(self):
+        lines = []
+        for instr in self.instructions:
+            lines.append(f"   {instr.offset} {instr.opname}({instr.argval})")
+
+        return "\n".join(lines)
+
     @property
     def start_offset(self):
         return self.instructions[0].offset
 
+    @property
+    def name(self):
+        assert self.block_id != -1
+        return f"B{self.block_id}"
 
-def _transform(instructions, *, counter=0, start_range=-1, end_range=-1):
+
+def _transform(instructions, *, counter=0, end_range=-1):
     blocks = [Block()]
 
     instr = None
 
-    while start_range <= counter < end_range:
+    while counter < end_range:
         cursor = blocks[-1]
         instr = instructions[counter]
 
         if has_jump(instr):
             iteration = 0
             final_counter = instr.argval // 2
+            # TODO: support loops
             while final_counter is not None:
                 target_counter = final_counter
                 final_counter, target_blocks = _transform(
                     instructions,
                     counter=counter + 1,
-                    start_range=counter + 1,
                     end_range=final_counter,
                 )
                 blocks.extend(target_blocks)
@@ -81,6 +97,11 @@ def _assign_ids(original_blocks):
     return blocks
 
 
+def _eliminate_duplicates(original_blocks):
+    blocks = {tuple(block.instructions): block for block in original_blocks}
+    return list(blocks.values())
+
+
 def _link(blocks):
     offset_map = {block.start_offset: block for block in blocks}
 
@@ -98,18 +119,10 @@ def _link(blocks):
 
 def transform(instructions):
     _, blocks = _transform(instructions, end_range=len(instructions))
+    blocks = _eliminate_duplicates(blocks)
     blocks = _assign_ids(blocks)
     blocks = _link(blocks)
-
-    for block in blocks:
-        source = f"{block.block_id}. block"
-        if block.next_block:
-            source += f" (proceeds to {block.next_block.block_id})"
-        else:
-            source += " (exit block)"
-        print(source + ": ")
-        for instr in block.instructions:
-            print(f"   {instr.offset} {instr.opname}({instr.argval})")
+    return blocks
 
 
 def transform_source(source_code):
@@ -117,6 +130,30 @@ def transform_source(source_code):
     return transform(instructions)
 
 
+def dump(blocks):
+    for block in blocks:
+        source = f"{block.block_id}. block"
+        if block.next_block:
+            source += f" (proceeds to {block.next_block.block_id})"
+        else:
+            source += " (exit block)"
+        print(source + ": ")
+        print(textwrap.dedent("   ", block.dump()))
+
+
+def visualize(blocks):
+    import graphviz
+
+    board = graphviz.Digraph()
+
+    for block in blocks:
+        board.node(block.name, block.name + "\n" + block.dump())
+        if block.next_block:
+            board.edge(block.name, block.next_block.name)
+
+    board.render("/tmp/ir_out.gv", view=True)
+
+
 if __name__ == "__main__":
     with open(sys.argv[1]) as stream:
-        print(transform_source(stream.read()))
+        visualize(transform_source(stream.read()))
