@@ -6,6 +6,7 @@ from __future__ import annotations
 import dis
 import sys
 from dataclasses import dataclass, field
+from functools import partial
 from typing import Tuple
 
 import opcode
@@ -15,12 +16,22 @@ def has_jump(instr):
     return instr.opcode in opcode.hasjabs + opcode.hasjrel
 
 
+def has_conditional_jump(instr):
+    return has_jump(instr) and (
+        "_IF_" in instr.opname or "FOR_" == instr.opname
+    )  # pretty hacky, come with a better way.
+
+
+def is_backwards_jump(program_counter, instr):
+    return (instr.argval // 2) < program_counter
+
+
 @dataclass
 class Block:
     instructions: List[dis.Instruction] = field(default_factory=list)
 
     # Assigned by the linker
-    next_block: Block = None
+    next_blocks: List[Block] = field(default_factory=list)
     block_id: int = -1
 
     def __bool__(self):
@@ -55,7 +66,7 @@ def _transform(instructions, *, counter=0, end_range=-1):
         cursor = blocks[-1]
         instr = instructions[counter]
 
-        if has_jump(instr):
+        if has_jump(instr) and not is_backwards_jump(counter, instr):
             iteration = 0
             final_counter = instr.argval // 2
             # TODO: support loops
@@ -78,7 +89,11 @@ def _transform(instructions, *, counter=0, end_range=-1):
 
     # If the last instruction contains a jump, then propagate this
     # to the upper level
-    if (instr is not None) and has_jump(instr):
+    if (
+        (instr is not None)
+        and has_jump(instr)
+        and not is_backwards_jump(counter, instr)
+    ):
         final_counter = instr.argval // 2
     else:
         final_counter = None
@@ -105,14 +120,21 @@ def _eliminate_duplicates(original_blocks):
 def _link(blocks):
     offset_map = {block.start_offset: block for block in blocks}
 
-    for block in blocks:
-        last_instr = block.instructions[-1]
-        if has_jump(last_instr):
-            next_block = offset_map.get(last_instr.argval)
-        else:
-            next_block = offset_map.get(last_instr.offset + 2)
+    def follow_block(block, follower_block):
+        if follower_block is not None:
+            block.next_blocks.append(follower_block)
 
-        block.next_block = next_block
+    for block in blocks:
+        follow = partial(follow_block, block)
+        last_instr = block.instructions[-1]
+
+        if has_jump(last_instr):
+            follow(offset_map.get(last_instr.argval))
+
+        # If the last instruction ends with a non-conditional jump, then
+        # we can't link, otherwise we do.
+        if has_conditional_jump(last_instr) or not has_jump(last_instr):
+            follow(offset_map.get(last_instr.offset + 2))
 
     return blocks
 
@@ -133,8 +155,12 @@ def transform_source(source_code):
 def dump(blocks):
     for block in blocks:
         source = f"{block.block_id}. block"
-        if block.next_block:
-            source += f" (proceeds to {block.next_block.block_id})"
+        if block.next_blocks:
+            next_blocks = ", ".join(
+                f"block: {next_block.block_id}"
+                for next_block in block.next_blocks
+            )
+            source += f" (proceeds to {next_blocks})"
         else:
             source += " (exit block)"
         print(source + ": ")
@@ -148,8 +174,8 @@ def visualize(blocks):
 
     for block in blocks:
         board.node(block.name, block.name + "\n" + block.dump())
-        if block.next_block:
-            board.edge(block.name, block.next_block.name)
+        for next_block in block.next_blocks:
+            board.edge(block.name, next_block.name)
 
     board.render("/tmp/ir_out.gv", view=True)
 
