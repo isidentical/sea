@@ -6,7 +6,7 @@ from __future__ import annotations
 import dis
 import sys
 from dataclasses import dataclass, field
-from functools import partial
+from functools import cache, partial
 from typing import Tuple
 
 import opcode
@@ -18,7 +18,7 @@ def has_jump(instr):
 
 def has_conditional_jump(instr):
     return has_jump(instr) and (
-        "_IF_" in instr.opname or "FOR_" == instr.opname
+        "_IF_" in instr.opname or "FOR_ITER" == instr.opname
     )  # pretty hacky, come with a better way.
 
 
@@ -48,8 +48,12 @@ class Block:
         return "\n".join(lines)
 
     @property
-    def start_offset(self):
-        return self.instructions[0].offset
+    def offset_range(self):
+        return range(
+            self.instructions[0].offset,
+            self.instructions[-1].offset
+            + 1,  # right operand is not inclusive on range()
+        )
 
     @property
     def name(self):
@@ -69,7 +73,6 @@ def _transform(instructions, *, counter=0, end_range=-1):
         if has_jump(instr) and not is_backwards_jump(counter, instr):
             iteration = 0
             final_counter = instr.argval // 2
-            # TODO: support loops
             while final_counter is not None:
                 target_counter = final_counter
                 final_counter, target_blocks = _transform(
@@ -118,7 +121,11 @@ def _eliminate_duplicates(original_blocks):
 
 
 def _link(blocks):
-    offset_map = {block.start_offset: block for block in blocks}
+    @cache
+    def find_block(offset):
+        for block in blocks:
+            if offset in block.offset_range:
+                return block
 
     def follow_block(block, follower_block):
         if follower_block is not None:
@@ -129,12 +136,12 @@ def _link(blocks):
         last_instr = block.instructions[-1]
 
         if has_jump(last_instr):
-            follow(offset_map.get(last_instr.argval))
+            follow(find_block(last_instr.argval))
 
         # If the last instruction ends with a non-conditional jump, then
         # we can't link, otherwise we do.
         if has_conditional_jump(last_instr) or not has_jump(last_instr):
-            follow(offset_map.get(last_instr.offset + 2))
+            follow(find_block(last_instr.offset + 2))
 
     return blocks
 
