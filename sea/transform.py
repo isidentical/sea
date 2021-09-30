@@ -47,11 +47,11 @@ def transform_blocks(blocks, *, graph=None):
         node = graph.add_node(block)
         transform_calls(block.calls, graph=graph)
 
-        for next_block in block.next_blocks:
+        for label, next_block in zip(block.labels, block.next_blocks):
             graph.add_edge(
                 graph.add_node(block.calls[-1]),
                 graph.add_node(next_block.calls[0]),
-                metadata={"type": "flow"},
+                metadata={"type": "flow", "label": label},
             )
 
     return graph

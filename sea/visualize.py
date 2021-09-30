@@ -35,6 +35,9 @@ def visualize_as_graph(graph, enable_subgraphs=True):
             properties["arrowhead"] = "none"
             properties["color"] = "gray"
 
+        if label := edge.metadata.get("label"):
+            properties["label"] = label
+
         board.edge(
             edge.source.virtual.name,
             edge.destination.virtual.name,

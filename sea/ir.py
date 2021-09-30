@@ -6,7 +6,7 @@ from __future__ import annotations
 import dis
 from dataclasses import dataclass, field
 from functools import cache, partial
-from typing import List
+from typing import List, Optional
 
 import opcode
 
@@ -33,6 +33,7 @@ class IRBlock:
 
     # Assigned by the linker
     next_blocks: List[Block] = field(default_factory=list)
+    labels: List[Optional[str]] = field(default_factory=list)
     block_id: int = -1
 
     def __bool__(self):
@@ -128,21 +129,38 @@ def _link(blocks):
             if offset in block.offset_range:
                 return block
 
-    def follow_block(block, follower_block):
+    def get_label(instr, fall):
+        if "_IF_FALSE" in instr.opname:
+            label_1 = "true"
+            label_2 = "false"
+        elif "_IF_TRUE" in instr.opname:
+            label_1 = "false"
+            label_2 = "true"
+        else:
+            label_1 = label_2 = None
+
+        if fall:
+            return label_1
+        else:
+            return label_2
+
+    def follow_block(block, last_instr, follower_block, fall=False):
         if follower_block is not None:
             block.next_blocks.append(follower_block)
+            block.labels.append(get_label(last_instr, fall))
 
     for block in blocks:
         follow = partial(follow_block, block)
         last_instr = block.instructions[-1]
 
         if has_jump(last_instr):
-            follow(find_block(last_instr.argval))
+            follow(last_instr, find_block(last_instr.argval))
+            # If the last instruction ends with a non-conditional jump, then
+            # we can't link the following block
+            if not has_conditional_jump(last_instr):
+                continue
 
-        # If the last instruction ends with a non-conditional jump, then
-        # we can't link, otherwise we do.
-        if has_conditional_jump(last_instr) or not has_jump(last_instr):
-            follow(find_block(last_instr.offset + 2))
+        follow(last_instr, find_block(last_instr.offset + 2), fall=True)
 
     return blocks
 

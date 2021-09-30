@@ -31,6 +31,7 @@ class Block(Virtual):
     block: IRBlock
     calls: List[Call]
     next_blocks: List[Block] = field(default_factory=list)
+    labels: List[str] = field(default_factory=list)
 
     def as_string(self):
         lines = []
@@ -38,10 +39,13 @@ class Block(Virtual):
         for call in self.calls:
             lines.append("    " + call.as_string())
         if self.next_blocks:
-            may_jump_to = ", ".join(
-                next_block.name for next_block in self.next_blocks
-            )
-            lines.append(f"    may jump to: {may_jump_to}")
+            parts = []
+            for label, next_block in zip(self.labels, self.next_blocks):
+                part = next_block.name
+                if label:
+                    part += f" (on {label})"
+                parts.append(part)
+            lines.append(f"    may jump to: {', '.join(parts)}")
         return "\n".join(lines)
 
 

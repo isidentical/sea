@@ -39,7 +39,9 @@ def simulate_ir(instructions):
     r2v_map = {}
     for real_block in real_blocks:
         r2v_map[real_block.block_id] = Block(
-            real_block, simulate(real_block.instructions)
+            real_block,
+            simulate(real_block.instructions),
+            labels=real_block.labels,
         )
 
     for _, block in r2v_map.items():
