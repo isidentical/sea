@@ -20,7 +20,9 @@ def has_jump(instr):
 
 def has_conditional_jump(instr):
     return has_jump(instr) and (
-        "_IF_" in instr.opname or "FOR_ITER" == instr.opname
+        "_IF_" in instr.opname
+        or "SETUP_" in instr.opname
+        or "FOR_ITER" == instr.opname
     )  # pretty hacky, come with a better way.
 
 
@@ -207,7 +209,7 @@ def main():
     if options.show_graph:
         visualize(blocks)
     else:
-        visualize(blocks)
+        dump(blocks)
 
 
 if __name__ == "__main__":
