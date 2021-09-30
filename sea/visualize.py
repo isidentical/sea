@@ -28,14 +28,17 @@ def visualize_as_graph(graph, enable_subgraphs=True):
 
         edge_type = edge.metadata.get("type")
         if edge_type == "argument":
-            properties["color"] = "red"
-        elif edge_type == "flow":
-            properties["color"] = "green"
+            properties["color"] = "chocolate"
         elif edge_type == "patched":
             properties["arrowhead"] = "none"
             properties["color"] = "gray"
 
         if label := edge.metadata.get("label"):
+            if edge_type == "flow":
+                if label == "true":
+                    properties["color"] = "green"
+                elif label == "false":
+                    properties["color"] = "red"
             properties["label"] = label
 
         board.edge(
