@@ -4,12 +4,9 @@
 from __future__ import annotations
 
 import dis
-import sys
-import textwrap
-from argparse import ArgumentParser
 from dataclasses import dataclass, field
 from functools import cache, partial
-from typing import Tuple
+from typing import List
 
 import opcode
 
@@ -31,7 +28,7 @@ def is_backwards_jump(program_counter, instr):
 
 
 @dataclass
-class Block:
+class IRBlock:
     instructions: List[dis.Instruction] = field(default_factory=list)
 
     # Assigned by the linker
@@ -66,7 +63,7 @@ class Block:
 
 
 def _transform(instructions, *, counter=0, end_range=-1):
-    blocks = [Block()]
+    blocks = [IRBlock()]
 
     instr = None
 
@@ -89,7 +86,7 @@ def _transform(instructions, *, counter=0, end_range=-1):
                 iteration += 1
 
             counter -= 1
-            blocks.append(Block())
+            blocks.append(IRBlock())
 
         cursor.add_instruction(instr)
         counter += 1
@@ -150,67 +147,9 @@ def _link(blocks):
     return blocks
 
 
-def transform(instructions):
+def compile_ir(instructions):
     _, blocks = _transform(instructions, end_range=len(instructions))
     blocks = _eliminate_duplicates(blocks)
     blocks = _assign_ids(blocks)
     blocks = _link(blocks)
     return blocks
-
-
-def transform_source(source_code):
-    instructions = list(dis.Bytecode(source_code))
-    return transform(instructions)
-
-
-def dump(blocks):
-    for block in blocks:
-        source = f"{block.block_id}. block"
-        if block.next_blocks:
-            next_blocks = ", ".join(
-                str(next_block.block_id)
-                for next_block in sorted(
-                    block.next_blocks,
-                    key=lambda block: block.block_id,
-                    reverse=True,
-                )
-            )
-            source += f" (proceeds to {next_blocks})"
-        else:
-            source += " (exit block)"
-        print(source + ": ")
-        print(textwrap.indent(block.dump(), "    "))
-
-
-def visualize(blocks):
-    import graphviz
-
-    board = graphviz.Digraph()
-
-    for block in blocks:
-        board.node(block.name, block.name + "\n" + block.dump())
-        for next_block in block.next_blocks:
-            board.edge(block.name, next_block.name)
-
-    board.render("/tmp/ir_out.gv", view=True)
-
-
-def main():
-    parser = ArgumentParser()
-    parser.add_argument("file")
-    parser.add_argument("--show-graph", action="store_true")
-
-    options = parser.parse_args()
-
-    with open(options.file) as stream:
-        source_code = stream.read()
-
-    blocks = transform_source(source_code)
-    if options.show_graph:
-        visualize(blocks)
-    else:
-        dump(blocks)
-
-
-if __name__ == "__main__":
-    main()

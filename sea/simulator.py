@@ -1,7 +1,6 @@
-import dis
-
 from sea.bytecode import get_instr_properties
-from sea.virtuals import Call, Constant, Virtual, traverse_virtuals
+from sea.ir import compile_ir
+from sea.virtuals import Block, Call, Constant, Virtual
 
 
 def simulate(instructions):
@@ -31,9 +30,21 @@ def simulate(instructions):
             stack.append(call)
 
     assert len(stack) == 0, stack
-    return traverse_virtuals(calls)
+    return calls
 
 
-def simulate_source(source_code):
-    instructions = tuple(dis.Bytecode(source_code))
-    return simulate(instructions)
+def simulate_ir(instructions):
+    real_blocks = compile_ir(instructions)
+
+    r2v_map = {}
+    for real_block in real_blocks:
+        r2v_map[real_block.block_id] = Block(
+            real_block, simulate(real_block.instructions)
+        )
+
+    for _, block in r2v_map.items():
+        for next_real_block in block.block.next_blocks:
+            block.next_blocks.append(r2v_map[next_real_block.block_id])
+
+    blocks = list(r2v_map.values())
+    return blocks

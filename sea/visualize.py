@@ -1,10 +1,9 @@
 from sea.graph import Graph
 
 
-def visualize_as_graph(calls):
+def visualize_as_graph(graph):
     import graphviz
 
-    graph = Graph.from_calls(calls)
     board = graphviz.Digraph()
 
     for node in graph.nodes:
@@ -12,9 +11,13 @@ def visualize_as_graph(calls):
 
     for edge in graph.edges:
         properties = {}
-        if edge.metadata["type"] == "argument":
+
+        edge_type = edge.metadata.get("type")
+        if edge_type == "argument":
             properties["color"] = "red"
-        elif edge.metadata["type"] == "patched":
+        elif edge_type == "flow":
+            properties["color"] = "green"
+        elif edge_type == "patched":
             properties["arrowhead"] = "none"
             properties["color"] = "gray"
 
@@ -27,6 +30,6 @@ def visualize_as_graph(calls):
     board.render("/tmp/out.gv", view=True)
 
 
-def visualize_as_text(calls):
-    for call in calls:
-        print(call.as_string())
+def visualize_as_text(virtuals):
+    for virtual in virtuals:
+        print(virtual.as_string())
