@@ -10,6 +10,8 @@ def _patch_edges(graph, nodes):
     for node, next_node in zip(nodes, nodes[1:]):
         if len(node._outgoing_edges) == 0:
             graph.add_edge(node, next_node, metadata={"type": "patched"})
+        if len(next_node._incoming_edges) == 0:
+            graph.add_edge(node, next_node, metadata={"type": "patched"})
 
 
 def transform_calls(calls, *, graph=None):
@@ -44,11 +46,10 @@ def transform_blocks(blocks, *, graph=None):
     for block in blocks:
         node = graph.add_node(block)
         transform_calls(block.calls, graph=graph)
-        graph.add_edge(graph.add_node(block.calls[-1]), node)
 
         for next_block in block.next_blocks:
             graph.add_edge(
-                node,
+                graph.add_node(block.calls[-1]),
                 graph.add_node(next_block.calls[0]),
                 metadata={"type": "flow"},
             )

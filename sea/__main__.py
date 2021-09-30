@@ -20,6 +20,11 @@ def main():
         action="store_true",
         help="display calls in a dot-graph",
     )
+    parser.add_argument(
+        "--disable-subgraphs",
+        action="store_false",
+        help="display ir blocks as clusters",
+    )
 
     options = parser.parse_args()
 
@@ -36,7 +41,7 @@ def main():
         graph = transform_calls(virtuals)
 
     if options.show_graph:
-        visualize_as_graph(graph)
+        visualize_as_graph(graph, enable_subgraphs=options.disable_subgraphs)
     else:
         visualize_as_text(virtuals)
 
