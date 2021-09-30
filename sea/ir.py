@@ -5,6 +5,8 @@ from __future__ import annotations
 
 import dis
 import sys
+import textwrap
+from argparse import ArgumentParser
 from dataclasses import dataclass, field
 from functools import cache, partial
 from typing import Tuple
@@ -164,14 +166,18 @@ def dump(blocks):
         source = f"{block.block_id}. block"
         if block.next_blocks:
             next_blocks = ", ".join(
-                f"block: {next_block.block_id}"
-                for next_block in block.next_blocks
+                str(next_block.block_id)
+                for next_block in sorted(
+                    block.next_blocks,
+                    key=lambda block: block.block_id,
+                    reverse=True,
+                )
             )
             source += f" (proceeds to {next_blocks})"
         else:
             source += " (exit block)"
         print(source + ": ")
-        print(textwrap.dedent("   ", block.dump()))
+        print(textwrap.indent(block.dump(), "    "))
 
 
 def visualize(blocks):
@@ -187,6 +193,22 @@ def visualize(blocks):
     board.render("/tmp/ir_out.gv", view=True)
 
 
+def main():
+    parser = ArgumentParser()
+    parser.add_argument("file")
+    parser.add_argument("--show-graph", action="store_true")
+
+    options = parser.parse_args()
+
+    with open(options.file) as stream:
+        source_code = stream.read()
+
+    blocks = transform_source(source_code)
+    if options.show_graph:
+        visualize(blocks)
+    else:
+        visualize(blocks)
+
+
 if __name__ == "__main__":
-    with open(sys.argv[1]) as stream:
-        visualize(transform_source(stream.read()))
+    main()
