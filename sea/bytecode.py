@@ -177,3 +177,7 @@ def compute_negative_effect(opname, oparg, jump=False):
         return -1 if jump else 0
 
     return 0
+
+if __name__ == "__main__":
+    from pprint import pprint
+    pprint(INSTRUCTION_SET)
