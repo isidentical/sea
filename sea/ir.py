@@ -16,7 +16,7 @@ def is_jump(instr):
     return instr.opcode in opcode.hasjabs + opcode.hasjrel
 
 
-def has_conditional_jump(instr):
+def is_conditional_jump(instr):
     return is_jump(instr) and (
         "_IF_" in instr.opname
         or "SETUP_" in instr.opname
@@ -169,7 +169,7 @@ def _link(blocks):
             follow(last_instr, find_block(last_instr.argval))
             # If the last instruction ends with a non-conditional jump, then
             # we can't link the following block
-            if not has_conditional_jump(last_instr):
+            if not is_conditional_jump(last_instr):
                 continue
 
         follow(last_instr, find_block(last_instr.offset + 2), fall=True)
