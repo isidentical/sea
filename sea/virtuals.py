@@ -17,7 +17,6 @@ class Virtual:
 
     @property
     def name(self):
-        assert self.virtual_id != -1
         return "$" + self.PREFIX + str(self.virtual_id)
 
     def as_render(self):

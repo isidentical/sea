@@ -1,4 +1,3 @@
-from sea.graph import Graph
 from sea.virtuals import Block
 
 

@@ -1,14 +1,14 @@
-from sea.bytecode import get_instr_properties
+from sea.bytecode import InstructionProperties
 from sea.ir import compile_ir
 from sea.virtuals import Block, Call, Constant, Virtual
 
 
-def simulate(instructions):
+def simulate(instructions, jump=None):
     calls = []
     stack = []
 
     for instr in instructions:
-        properties = get_instr_properties(instr)
+        properties = InstructionProperties(instr, jump=jump)
 
         arguments = [
             stack.pop(index) for index in range(properties.negative_effect, 0)
@@ -29,7 +29,10 @@ def simulate(instructions):
             # TODO: ...
             stack.append(call)
 
-    assert len(stack) == 0, stack
+    if len(stack) > 0:
+        print("\n".join(obj.as_string() for obj in stack))
+        raise ValueError("stack is not empty")
+
     return calls
 
 
@@ -37,10 +40,14 @@ def simulate_ir(instructions):
     real_blocks = compile_ir(instructions)
 
     r2v_map = {}
+
     for real_block in real_blocks:
+        virtual_calls = simulate(
+            real_block.instructions,
+        )
         r2v_map[real_block.block_id] = Block(
             real_block,
-            simulate(real_block.instructions),
+            virtual_calls,
             labels=real_block.labels,
         )
 
