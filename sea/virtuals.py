@@ -32,6 +32,11 @@ class Block(Virtual):
     next_blocks: List[Block] = field(default_factory=list)
     labels: List[str] = field(default_factory=list)
 
+    def find_jump_target(self, offset):
+        for call in self.calls:
+            if call.func.offset == offset:
+                return call
+
     def as_string(self):
         lines = []
         lines.append(f"Block {self.name}: ")

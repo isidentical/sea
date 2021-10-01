@@ -14,7 +14,8 @@ def _simulate(instructions, *, is_jump=None, starter_stack=()):
         properties = InstructionProperties(instr, jump=is_jump)
 
         arguments = [
-            stack.pop(index) for index in range(properties.negative_effect, 0)
+            stack.pop(index) if stack else Constant("<NULL>")
+            for index in range(properties.negative_effect, 0)
         ]
         assert all(
             isinstance(argument, Virtual) for argument in arguments

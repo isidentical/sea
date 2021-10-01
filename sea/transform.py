@@ -1,4 +1,5 @@
 from sea.graph import Graph
+from sea.ir import is_jump
 from sea.virtuals import Constant
 
 
@@ -47,10 +48,22 @@ def transform_blocks(blocks, *, graph=None):
         node = graph.add_node(block)
         transform_calls(block.calls, graph=graph)
 
+        final_call = block.calls[-1]
         for label, next_block in zip(block.labels, block.next_blocks):
+            left = graph.add_node(final_call)
+            right = next_block.calls[0]
+
+            # If the block's exit is a jump, then try to infer it's target
+            # on the next block
+            if is_jump(block.calls[-1].func):
+                right = (
+                    next_block.find_jump_target(final_call.func.argval)
+                    or right
+                )
+
             graph.add_edge(
-                graph.add_node(block.calls[-1]),
-                graph.add_node(next_block.calls[0]),
+                left,
+                graph.add_node(right),
                 metadata={"type": "flow", "label": label},
             )
 
