@@ -165,9 +165,30 @@ def _link(blocks):
     return blocks
 
 
+def _filter_unreachable_blocks(original_blocks):
+    start_block = original_blocks[0]
+
+    seen_blocks = {start_block.block_id}
+    stack = [start_block]
+    while stack:
+        block = stack.pop(0)
+
+        for next_block in block.next_blocks:
+            if next_block.block_id not in seen_blocks:
+                seen_blocks.add(next_block.block_id)
+                stack.append(next_block)
+
+    return [
+        possible_block
+        for possible_block in original_blocks
+        if possible_block.block_id in seen_blocks
+    ]
+
+
 def compile_ir(instructions):
     _, blocks = _transform(instructions, end_range=len(instructions))
     blocks = _eliminate_duplicates(blocks)
     blocks = _assign_ids(blocks)
     blocks = _link(blocks)
+    blocks = _filter_unreachable_blocks(blocks)
     return blocks
