@@ -4,9 +4,10 @@
 from __future__ import annotations
 
 import dis
+from collections import deque
 from dataclasses import dataclass, field
 from functools import cache, partial
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 import opcode
 
@@ -31,10 +32,12 @@ def is_backwards_jump(program_counter, instr):
 class IRBlock:
     instructions: List[dis.Instruction] = field(default_factory=list)
 
+    # Assigned by the numerator
+    block_id: int = -1
+
     # Assigned by the linker
     next_blocks: List[Block] = field(default_factory=list)
-    labels: List[Optional[str]] = field(default_factory=list)
-    block_id: int = -1
+    metadata: List[Dict[str, Any]] = field(default_factory=list)
 
     def __bool__(self):
         return bool(self.instructions)
@@ -61,6 +64,10 @@ class IRBlock:
     def name(self):
         assert self.block_id != -1
         return f"B{self.block_id}"
+
+    @property
+    def labels(self):
+        return [metadata.get("label") for metadata in self.metadata]
 
 
 def _transform(instructions, *, counter=0, end_range=-1):
@@ -136,6 +143,9 @@ def _link(blocks):
         elif "_IF_TRUE" in instr.opname:
             label_1 = "false"
             label_2 = "true"
+        elif "FOR_ITER" in instr.opname:
+            label_1 = "loop"
+            label_2 = "exhaust"
         else:
             label_1 = label_2 = None
 
@@ -147,7 +157,9 @@ def _link(blocks):
     def follow_block(block, last_instr, follower_block, fall=False):
         if follower_block is not None:
             block.next_blocks.append(follower_block)
-            block.labels.append(get_label(last_instr, fall))
+
+            metadata = {"label": get_label(last_instr, fall), "fall": fall}
+            block.metadata.append(metadata)
 
     for block in blocks:
         follow = partial(follow_block, block)
@@ -169,9 +181,9 @@ def _filter_unreachable_blocks(original_blocks):
     start_block = original_blocks[0]
 
     seen_blocks = {start_block.block_id}
-    stack = [start_block]
+    stack = deque([start_block])
     while stack:
-        block = stack.pop(0)
+        block = stack.popleft()
 
         for next_block in block.next_blocks:
             if next_block.block_id not in seen_blocks:
@@ -191,4 +203,6 @@ def compile_ir(instructions):
     blocks = _assign_ids(blocks)
     blocks = _link(blocks)
     blocks = _filter_unreachable_blocks(blocks)
-    return blocks
+
+    assert len(blocks) >= 1
+    return blocks[0]

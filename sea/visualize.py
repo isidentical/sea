@@ -34,9 +34,9 @@ def visualize_as_graph(graph, enable_subgraphs=True):
 
         if label := edge.metadata.get("label"):
             if edge_type == "flow":
-                if label == "true":
+                if label in ("true", "loop"):
                     properties["color"] = "green"
-                elif label == "false":
+                elif label in ("false", "exhaust"):
                     properties["color"] = "red"
             properties["label"] = label
 

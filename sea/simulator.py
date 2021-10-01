@@ -1,14 +1,17 @@
+from collections import deque
+from typing import NamedTuple, Optional, Sequence
+
 from sea.bytecode import InstructionProperties
-from sea.ir import compile_ir
+from sea.ir import IRBlock, compile_ir
 from sea.virtuals import Block, Call, Constant, Virtual
 
 
-def simulate(instructions, jump=None):
+def _simulate(instructions, *, is_jump=None, starter_stack=()):
     calls = []
-    stack = []
+    stack = [*starter_stack]
 
     for instr in instructions:
-        properties = InstructionProperties(instr, jump=jump)
+        properties = InstructionProperties(instr, jump=is_jump)
 
         arguments = [
             stack.pop(index) for index in range(properties.negative_effect, 0)
@@ -29,6 +32,11 @@ def simulate(instructions, jump=None):
             # TODO: ...
             stack.append(call)
 
+    return stack, calls
+
+
+def simulate(instructions):
+    stack, calls = _simulate(instructions)
     if len(stack) > 0:
         print("\n".join(obj.as_string() for obj in stack))
         raise ValueError("stack is not empty")
@@ -36,20 +44,39 @@ def simulate(instructions, jump=None):
     return calls
 
 
-def simulate_ir(instructions):
-    real_blocks = compile_ir(instructions)
+class ParentBlock(NamedTuple):
+    block: IRBlock
+    spilled_stack: Sequence[Call] = ()
+    is_jump: Optional[bool] = None
 
+
+def simulate_ir(instructions):
     r2v_map = {}
 
-    for real_block in real_blocks:
-        virtual_calls = simulate(
+    parent_block = ParentBlock(compile_ir(instructions))
+
+    seen_blocks = {parent_block.block.block_id}
+    parent_blocks = deque([parent_block])
+    while parent_blocks:
+        real_block, spilled_stack, is_jump = parent_blocks.popleft()
+        stack, virtual_calls = _simulate(
             real_block.instructions,
+            starter_stack=spilled_stack,
+            is_jump=is_jump,
         )
         r2v_map[real_block.block_id] = Block(
-            real_block,
-            virtual_calls,
-            labels=real_block.labels,
+            real_block, virtual_calls, labels=real_block.labels
         )
+
+        for next_block, metadata in zip(
+            real_block.next_blocks, real_block.metadata
+        ):
+            if next_block.block_id not in seen_blocks:
+                parent_block = ParentBlock(
+                    next_block, spilled_stack=stack, is_jump=metadata["fall"]
+                )
+                parent_blocks.append(parent_block)
+                seen_blocks.add(next_block.block_id)
 
     for _, block in r2v_map.items():
         for next_real_block in block.block.next_blocks:
