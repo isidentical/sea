@@ -12,12 +12,12 @@ from typing import Any, Dict, List, Optional
 import opcode
 
 
-def has_jump(instr):
+def is_jump(instr):
     return instr.opcode in opcode.hasjabs + opcode.hasjrel
 
 
 def has_conditional_jump(instr):
-    return has_jump(instr) and (
+    return is_jump(instr) and (
         "_IF_" in instr.opname
         or "SETUP_" in instr.opname
         or "FOR_ITER" == instr.opname
@@ -79,7 +79,7 @@ def _transform(instructions, *, counter=0, end_range=-1):
         cursor = blocks[-1]
         instr = instructions[counter]
 
-        if has_jump(instr) and not is_backwards_jump(counter, instr):
+        if is_jump(instr) and not is_backwards_jump(counter, instr):
             iteration = 0
             final_counter = instr.argval // 2
             while final_counter is not None:
@@ -103,7 +103,7 @@ def _transform(instructions, *, counter=0, end_range=-1):
     # to the upper level
     if (
         (instr is not None)
-        and has_jump(instr)
+        and is_jump(instr)
         and not is_backwards_jump(counter, instr)
     ):
         final_counter = instr.argval // 2
@@ -165,7 +165,7 @@ def _link(blocks):
         follow = partial(follow_block, block)
         last_instr = block.instructions[-1]
 
-        if has_jump(last_instr):
+        if is_jump(last_instr):
             follow(last_instr, find_block(last_instr.argval))
             # If the last instruction ends with a non-conditional jump, then
             # we can't link the following block
