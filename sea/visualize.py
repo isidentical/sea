@@ -49,6 +49,6 @@ def visualize_as_graph(graph, enable_subgraphs=True):
     board.render("/tmp/out.gv", view=True)
 
 
-def visualize_as_text(virtuals):
+def visualize_as_text(virtuals, **kwargs):
     for virtual in virtuals:
-        print(virtual.as_string())
+        print(virtual.as_string(), **kwargs)
