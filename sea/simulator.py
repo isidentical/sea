@@ -3,7 +3,7 @@ from typing import NamedTuple, Optional, Sequence
 
 from sea.bytecode import InstructionProperties
 from sea.ir import IRBlock, compile_ir
-from sea.virtuals import Block, Call, Constant, Virtual
+from sea.virtuals import Block, Call, Constant, Partial, Virtual
 
 
 def _simulate(instructions, *, is_jump=None, starter_stack=()):
@@ -14,7 +14,7 @@ def _simulate(instructions, *, is_jump=None, starter_stack=()):
         properties = InstructionProperties(instr, jump=is_jump)
 
         arguments = [
-            stack.pop(index) if stack else Constant("<NULL>")
+            stack.pop(index) if len(stack) > abs(index) else Constant("<NULL>")
             for index in range(properties.negative_effect, 0)
         ]
         assert all(
@@ -29,9 +29,13 @@ def _simulate(instructions, *, is_jump=None, starter_stack=()):
         call = Call(instr, arguments)
         calls.append(call)
 
-        if properties.positive_effect:
-            # TODO: ...
+        positive_effect = properties.positive_effect
+        if positive_effect == 1:
             stack.append(call)
+        elif positive_effect > 1:
+            stack.extend(
+                Partial(call, index) for index in range(positive_effect)
+            )
 
     return stack, calls
 

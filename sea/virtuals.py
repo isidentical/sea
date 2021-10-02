@@ -74,6 +74,17 @@ class Call(Virtual):
 
 
 @dataclass
+class Partial(Virtual):
+    PREFIX: ClassVar[str] = "P"
+
+    call: Call
+    index: int
+
+    def as_string(self):
+        return f"{self.call.name}[{self.index}]"
+
+
+@dataclass
 class Constant(Virtual):
     PREFIX: ClassVar[str] = "C"
 

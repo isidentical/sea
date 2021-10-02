@@ -111,18 +111,18 @@ PY39_INSTRUCTION_SET = {
     "YIELD_VALUE": -1,
     # POP(object), PUSH(value)
     "LOAD_ATTR": -1,
-    # POP(iterator), PUSH(next_value)
-    "FOR_ITER": -1,
     # POP(sequence), PUSH(*sequence)
     "UNPACK_SEQUENCE": -1,
     "UNPACK_EX": -1,
     # TODO: DUP_* / ROT_*
 }
 PY310_INSTRUCTION_SET = {**PY39_INSTRUCTION_SET}
+PY311_INSTRUCTION_SET = {**PY310_INSTRUCTION_SET}
 
 INSTRUCTION_SETS = {
     (3, 9): PY39_INSTRUCTION_SET,
     (3, 10): PY310_INSTRUCTION_SET,
+    (3, 11): PY311_INSTRUCTION_SET,
 }
 
 try:
@@ -175,9 +175,13 @@ def compute_negative_effect(opname, oparg, jump=False):
         return 0 if jump else -1
     elif opname == "SETUP_ASYNC_WITH":
         return -1 if jump else 0
+    elif opname == "FOR_ITER":
+        return -1 if jump else 0
 
     return 0
 
+
 if __name__ == "__main__":
     from pprint import pprint
+
     pprint(INSTRUCTION_SET)
