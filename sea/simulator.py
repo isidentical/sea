@@ -14,7 +14,9 @@ def _simulate(instructions, *, is_jump=None, starter_stack=()):
         properties = InstructionProperties(instr, jump=is_jump)
 
         arguments = [
-            stack.pop(index) if len(stack) > abs(index) else Constant("<NULL>")
+            stack.pop(index)
+            if len(stack) >= abs(index)
+            else Constant("<NULL>")
             for index in range(properties.negative_effect, 0)
         ]
         assert all(
