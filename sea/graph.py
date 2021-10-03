@@ -91,6 +91,8 @@ class GraphItem:
 
 @dataclass
 class Node(GraphItem):
+    """A `node` object in the graph space. It proxies the virtual object it holds."""
+
     virtual: Virtual
 
     _incoming_edges: List[Edge] = field(default_factory=list, repr=False)
