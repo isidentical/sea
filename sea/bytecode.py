@@ -183,5 +183,6 @@ def compute_negative_effect(opname, oparg, jump=False):
 
 if __name__ == "__main__":
     from pprint import pprint
-
+    
+    print(f"Instruction set for: {sys.version!r}")
     pprint(INSTRUCTION_SET)
