@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List
 
 from sea.virtuals import Virtual
+from sea.transform import transform_calls
 
 
 @dataclass
@@ -14,9 +15,7 @@ class Graph:
     @classmethod
     def from_calls(cls, calls):
         """Construct a Graph object from top-level calls"""
-        graph = cls()
-        graph._add_calls(calls)
-        return graph
+        return transform_calls(calls, graph=cls())
 
     def _add(self, cls, store, *args, **kwargs):
         # There might be multiple add() calls with the same
@@ -52,36 +51,6 @@ class Graph:
     @property
     def edges(self):
         return self._edges.values()
-
-    def _add_calls(self, calls):
-        top_level_nodes = []
-
-        for call in calls:
-            node = self.add_node(call)
-            top_level_nodes.append(node)
-
-            for index, argument in enumerate(call.arguments):
-                argument_node = self.add_node(argument)
-                self.add_edge(
-                    argument_node,
-                    node,
-                    metadata={"type": "argument", "position": index},
-                )
-
-        self._patch_edges(top_level_nodes)
-
-    def _patch_edges(self, nodes):
-        # For every independent statement, if we do not patch
-        # edges we will get a new subgraph. To prevent this,
-        # we will simply bind each instruction to the next if
-        # they do not already have any outgoing edge in the
-        # existing graph. Since this is not a control flow graph,
-        # this part is relatively easy because we ignore the jumps.
-
-        for node, next_node in zip(nodes, nodes[1:]):
-            if len(node._outgoing_edges) == 0:
-                self.add_edge(node, next_node, metadata={"type": "patched"})
-
 
 class GraphItem:
     @property
