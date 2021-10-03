@@ -105,6 +105,9 @@ class Node(GraphItem):
 
 @dataclass
 class Edge:
+    """Represent a vertex between two different `Node`s. It also holds a dictionary to serve
+    as a simple way to create labels, or document details about this edge."""
+
     source: Node
     destination: Node
     metadata: Dict[Any, Any] = field(default_factory=dict)
