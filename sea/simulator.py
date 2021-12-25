@@ -43,6 +43,8 @@ def _simulate(instructions, *, is_jump=None, starter_stack=()):
 
 
 def simulate(instructions):
+    """Simulate given instructions and return a list of
+    virtual calls in the Basic SEA form."""
     stack, calls = _simulate(instructions)
     if len(stack) > 0:
         print("\n".join(obj.as_string() for obj in stack))
@@ -58,12 +60,14 @@ class ParentBlock(NamedTuple):
 
 
 def simulate_ir(instructions):
+    """Simulate given instructions and return a list of
+    CFG blocks."""
     r2v_map = {}
-
     parent_block = ParentBlock(compile_ir(instructions))
 
     seen_blocks = {parent_block.block.block_id}
     parent_blocks = deque([parent_block])
+
     while parent_blocks:
         real_block, spilled_stack, is_jump = parent_blocks.popleft()
         stack, virtual_calls = _simulate(

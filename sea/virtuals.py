@@ -19,7 +19,7 @@ class Virtual:
     def name(self):
         return "$" + self.PREFIX + str(self.virtual_id)
 
-    def as_render(self):
+    def as_string(self):
         raise NotImplementedError
 
 

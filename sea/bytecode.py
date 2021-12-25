@@ -128,7 +128,7 @@ INSTRUCTION_SETS = {
 try:
     INSTRUCTION_SET = INSTRUCTION_SETS[sys.version_info[:2]]
 except KeyError as exc:
-    raise ValueError(f"Instruction set is not found for: {sys.version!r}")
+    raise ValueError(f"Can't find the instruction set for: {sys.version!r}")
 
 
 def compute_negative_effect(opname, oparg, jump=False):
@@ -179,10 +179,3 @@ def compute_negative_effect(opname, oparg, jump=False):
         return -1 if jump else 0
 
     return 0
-
-
-if __name__ == "__main__":
-    from pprint import pprint
-    
-    print(f"Instruction set for: {sys.version!r}")
-    pprint(INSTRUCTION_SET)

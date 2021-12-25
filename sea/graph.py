@@ -4,7 +4,6 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List
 
 from sea.virtuals import Virtual
-from sea.transform import transform_calls
 
 
 @dataclass
@@ -15,6 +14,8 @@ class Graph:
     @classmethod
     def from_calls(cls, calls):
         """Construct a Graph object from top-level calls"""
+        from sea.transform import transform_calls
+
         return transform_calls(calls, graph=cls())
 
     def _add(self, cls, store, *args, **kwargs):
@@ -51,6 +52,7 @@ class Graph:
     @property
     def edges(self):
         return self._edges.values()
+
 
 class GraphItem:
     @property

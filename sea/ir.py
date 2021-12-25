@@ -17,11 +17,7 @@ def is_jump(instr):
 
 
 def is_conditional_jump(instr):
-    return is_jump(instr) and (
-        "_IF_" in instr.opname
-        or "SETUP_" in instr.opname
-        or "FOR_ITER" == instr.opname
-    )  # pretty hacky, come with a better way.
+    return instr.opname not in ("JUMP_ABSOLUTE", "JUMP_FORWARD")
 
 
 def is_backwards_jump(program_counter, instr):
